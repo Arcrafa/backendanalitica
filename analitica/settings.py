@@ -37,7 +37,8 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'rest_framework.authtoken',
-    'talento',
+    'archivo',
+    'saberpro'
 
 ]
 REST_FRAMEWORK = {
@@ -84,6 +85,7 @@ WSGI_APPLICATION = 'analitica.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/3.1/ref/settings/#databases
 
+# noinspection PyInterpreter
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
