@@ -17,11 +17,9 @@ from django.contrib import admin
 from django.urls import path, include
 from rest_framework import routers, serializers, viewsets
 from archivo.views import ArchivoViewSet
-from saberpro.views import SaberProViewSet
 from . import views
 router = routers.DefaultRouter()
 router.register(r'archivo',ArchivoViewSet)
-router.register(r'saberpro',SaberProViewSet)
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include(router.urls)),

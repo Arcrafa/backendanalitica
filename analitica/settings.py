@@ -24,7 +24,7 @@ SECRET_KEY = '7d*5f76*j_b^a0wzdtr#1^aa_h%26-7d$rmdbzh9mk4c1i+0-3'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['.localhost', '127.0.0.1', '[::1]', 'arc123.xyz', '0.0.0.0']
+ALLOWED_HOSTS = ['.localhost', '127.0.0.1', '[::1]', 'arc123.xyz', '0.0.0.0','www.arc123.xyz','www.arc123.xyz:80','www.arc123.xyz:8000']
 
 # Application definition
 
@@ -37,9 +37,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'rest_framework.authtoken',
-    'archivo',
-    'saberpro'
-
+    'archivo'
 ]
 REST_FRAMEWORK = {
     # Use Django's standard `django.contrib.auth` permissions,
