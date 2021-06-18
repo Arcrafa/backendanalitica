@@ -14,7 +14,7 @@ DROP TABLE IF EXISTS
     public.Readmisiones,
     public.Resultados
     CASCADE;
-
+CREATE EXTENSION IF NOT EXISTS unaccent;
 DROP FOREIGN TABLE IF EXISTS public.Admisiones,
     public.Planeacion;
 
@@ -261,16 +261,22 @@ ALTER TABLE Exoneracion_estudiante
             REFERENCES Estudiante (codigo)
 ;
 
+CREATE SEQUENCE if not exists Archivo_id_seq;
 
 CREATE TABLE IF NOT EXISTS public.Archivo
 (
-    id             integer NOT NULL,
+       id          INTEGER NOT NULL DEFAULT nextval('Archivo_id_seq'),
+
     descripcion    varchar,
     tipo           varchar,
     new_file       varchar,
     fecha_creacion date,
+    estado varchar,
     CONSTRAINT archivo_archivo_pkey PRIMARY KEY (id)
 );
+ALTER SEQUENCE Archivo_id_seq
+    OWNED BY public.Archivo.id;
+
 
 CREATE EXTENSION IF NOT EXISTS file_fdw;
 CREATE SERVER IF NOT EXISTS files_csv FOREIGN DATA WRAPPER file_fdw;
@@ -360,6 +366,7 @@ $$
 DECLARE
     strquery TEXT := '';
 BEGIN
+    NEW.fecha_creacion := now();
     --configura la external correspondiente
     strquery :=
             CONCAT('ALTER FOREIGN TABLE public.', NEW.tipo, ' OPTIONS (SET filename ', CHR(39), '/var/lib/postgresql/',
@@ -367,7 +374,7 @@ BEGIN
                    ')');
     raise notice '%',strquery;
     EXECUTE format(strquery);
-    NEW.fecha_creacion := now();
+
 
     --carga informacion de planeacion
     --guarda las competencias si que no esten en la tabla
@@ -512,8 +519,14 @@ BEGIN
                       inner join public.programa as pr on pr.nombre = unaccent(upper(ad.programa_ad))
          ) AS subquery
     where est.codigo = subquery.codigo_e;
-
+    NEW.estado='Subido OK';
     RETURN NEW;
+
+    exception
+        when others then
+            NEW.estado='Error: %';
+            RETURN NEW;
+
 
 END;
 $$;
