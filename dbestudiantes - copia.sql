@@ -1,3 +1,5 @@
+SET DATESTYLE TO EUROPEAN;
+
 DROP TABLE IF EXISTS
     public.Archivo,
     public.Ciudad,
@@ -12,7 +14,7 @@ DROP TABLE IF EXISTS
     public.Readmisiones,
     public.Resultados
     CASCADE;
-
+CREATE EXTENSION IF NOT EXISTS unaccent;
 DROP FOREIGN TABLE IF EXISTS public.Admisiones,
     public.Planeacion;
 
@@ -94,7 +96,7 @@ CREATE TABLE public.Estudiante
     colegioumento             VARCHAR,
     sexo                      VARCHAR,
     colegio                   VARCHAR,
-    fecha_nacimiento          DATE,
+    fecha_nacimiento          varchar,
     anyo_11                   INTEGER,
     pago_sem_actual           VARCHAR,
     modalidad                 VARCHAR,
@@ -114,7 +116,7 @@ CREATE TABLE public.Estudiante
     puntaje_admision          INTEGER,
     condigo_joven_en_accion   VARCHAR,
     tipo_doc                  VARCHAR,
-    num_documento_y           INTEGER,
+    num_documento             varchar,
     nombre                    VARCHAR,
     num_registro              VARCHAR,
     tipo_evaluado             VARCHAR,
@@ -144,7 +146,7 @@ CREATE TABLE public.Programa
 (
     id          INTEGER NOT NULL DEFAULT nextval('Programa_id_seq'),
     nombre      varchar,
-    cod_prog      INTEGER,
+    cod_prog    INTEGER,
     facultad_id INTEGER NOT NULL,
     CONSTRAINT PK_programa PRIMARY KEY (id)
 );
@@ -259,16 +261,22 @@ ALTER TABLE Exoneracion_estudiante
             REFERENCES Estudiante (codigo)
 ;
 
+CREATE SEQUENCE if not exists Archivo_id_seq;
 
 CREATE TABLE IF NOT EXISTS public.Archivo
 (
-    id             integer NOT NULL,
+       id          INTEGER NOT NULL DEFAULT nextval('Archivo_id_seq'),
+
     descripcion    varchar,
     tipo           varchar,
     new_file       varchar,
     fecha_creacion date,
+    estado varchar,
     CONSTRAINT archivo_archivo_pkey PRIMARY KEY (id)
 );
+ALTER SEQUENCE Archivo_id_seq
+    OWNED BY public.Archivo.id;
+
 
 CREATE EXTENSION IF NOT EXISTS file_fdw;
 CREATE SERVER IF NOT EXISTS files_csv FOREIGN DATA WRAPPER file_fdw;
@@ -328,7 +336,7 @@ CREATE FOREIGN TABLE Admisiones(
     ,PUNTAJE_ADMISION_ad VARCHAR
 
     ) SERVER files_csv
-    OPTIONS ( filename '/var/lib/postgresql/data/archivos/admisiones.csv', format 'csv' , delimiter ';', header 'true' );
+    OPTIONS ( format 'csv' , delimiter ';', header 'true' );
 CREATE FOREIGN TABLE Planeacion(
     tipo_de_documento VARCHAR
     ,documento VARCHAR
@@ -350,7 +358,7 @@ CREATE FOREIGN TABLE Planeacion(
     ,percentil_grupo_de_referencia_modulo VARCHAR
     ,novedades VARCHAR
     ) SERVER files_csv
-    OPTIONS ( filename '/var/lib/postgresql/data/archivos/planeacion.csv', format 'csv', delimiter ';' , header 'true');
+    OPTIONS (format 'csv', delimiter ';' , header 'true');
 
 CREATE OR REPLACE FUNCTION NEW_FILE_FUNCTION() RETURNS TRIGGER
     LANGUAGE PLPGSQL AS
@@ -358,13 +366,15 @@ $$
 DECLARE
     strquery TEXT := '';
 BEGIN
+    NEW.fecha_creacion := now();
     --configura la external correspondiente
     strquery :=
-            CONCAT('ALTER FOREIGN TABLE public.', NEW.tipo, ' OPTIONS (SET filename ', CHR(39), NEW.new_file, CHR(39),
+            CONCAT('ALTER FOREIGN TABLE public.', NEW.tipo, ' OPTIONS (SET filename ', CHR(39), '/var/lib/postgresql/',
+                   NEW.new_file, CHR(39),
                    ')');
     raise notice '%',strquery;
     EXECUTE format(strquery);
-    NEW.fecha_creacion := now();
+
 
     --carga informacion de planeacion
     --guarda las competencias si que no esten en la tabla
@@ -459,9 +469,64 @@ BEGIN
 
 
     --cargar info restante de admisiones
+    UPDATE public.estudiante as est
+    set cohorte=subquery.cohorte_ad::integer,
+        sem_actual=subquery.sem_actual_ad::integer,
+        estrato=subquery.estrato_ad::integer,
+        estado=subquery.estrato_ad,
+        promedio_acumulado=subquery.prom_acu_ad_ad::integer,
+        reliq_casos_especiales=subquery.reliq_casos_esp_ad::integer,
+        opcion_ingeso=subquery.opcion_de_ingreso_ad,
+        ciudad_origen=subquery.cir_id,
+        programa_id=subquery.pr_id,
+        ciudad_residencia=subquery.cio_id,
+        cupo_especial_ingreso=subquery.cupo_especial_ad,
+        ult_promedio_semestral=subquery.prom_sem_ad::integer,
+        porc_creditos_aprobados=subquery.porc_cred_oblig_aprobados_ad::integer,
+        nombre_situacion=subquery.nombre_situacion,
+        numero_readmisiones=subquery.readmisiones_ad::integer,
+        numero_plan=subquery.plan_ad::integer,
+        gano_examen_ingles=subquery.gano_ingles_ad::integer,
+        tipo_colegio=subquery.tipo_colegio_ad,
+        sexo=subquery.sexo_ad,
+        colegio=subquery.colegio_ad,
+        fecha_nacimiento=subquery.nacimiento_ad,--::date,
+        anyo_11=subquery.anio_undecimo_ad::integer,
+        pago_sem_actual=subquery.pago_ad,
+        modalidad=subquery.modalidad_ad,
+        nivel_estudio=subquery.nivel_estudio_ad,
+        mencion_honorofica=unaccent(upper(subquery.mencion_de_grado_ad)),
+        fecha_grado=subquery.fecha_de_grado_ad,
+        saber11=subquery.saber_11_ad,
+        saberpro=subquery.saber_pro_ad,
+        ult_periodo_academico=subquery.ultimo_periodo_academico_ad,
+        ult_periodo_pagado=subquery.ultimo_periodo_pagado_ad,
+        ult_tipo_pago=subquery.ultimo_tipo_de_pagado_ad,
+        ult_valor_pagado=subquery.ultimo_valor_pagado_ad::integer,
+        ult_valor_liquidado= subquery.ultimo_valor_liquidado_ad::integer,
+        ult_periodo_liquidado =subquery.ultimo_periodo_liquidado_ad,
+        total_periodos_academicos=subquery.total_periodos_academicos_ad::integer,
+        total_periodos_pagados=subquery.total_periodos_pagados_ad::numeric,
+        puntaje_admision=replace(subquery.puntaje_admision_ad, ',', '.')::numeric::integer,
+        num_documento=subquery.num_doc_ad
 
-
+    from (
+             select *, cio.id as cio_id, cir.id as cir_id, pr.id as pr_id
+             from public.estudiante
+                      inner join public.admisiones as ad on codigo = ad.codigo_e
+                      inner join public.ciudad as cio on unaccent(upper(ad.ciudad_origen_ad)) = cio.nombre
+                      inner join public.ciudad as cir on unaccent(upper(ad.ciudad_residencia_ad)) = cir.nombre
+                      inner join public.programa as pr on pr.nombre = unaccent(upper(ad.programa_ad))
+         ) AS subquery
+    where est.codigo = subquery.codigo_e;
+    NEW.estado='Subido OK';
     RETURN NEW;
+
+    exception
+        when others then
+            NEW.estado='Error: %';
+            RETURN NEW;
+
 
 END;
 $$;
@@ -474,44 +539,30 @@ CREATE TRIGGER new_file_trigger
     FOR EACH ROW
 EXECUTE PROCEDURE new_file_function();
 
+select * from estudiante;
 
+/*
 INSERT INTO public.Archivo (id, descripcion, tipo, new_file)
 VALUES (1, 'DESCIPCION del archivo de planeacion de prueba', 'Planeacion',
-        '/var/lib/postgresql/data/archivos/planeacion.csv');
+        'data/archivos/planeacion.csv');
 
 INSERT INTO public.Archivo (id, descripcion, tipo, new_file)
 VALUES (2, 'DESCIPCION del archivo de admisiones de prueba', 'Admisiones',
-        '/var/lib/postgresql/data/archivos/admisiones.csv');
+        'data/archivos/admisiones.csv');
+*/
 
 
-
-select * from Admisiones;
-
-select * from ciudad;
-/*
-UPDATE public.estudiante
-SET customer=subquery.customer,
-    address=subquery.address,
-    partn=subquery.partn
-FROM (SELECT address_id, customer, address, partn
-      FROM  /* big hairy SQL */ ...) AS subquery
-WHERE dummy.address_id=subquery.address_id;*/
-
-UPDATE public.estudiante
-set
-    cohorte=subquery.cohorte_ad::integer
-
-    from(
-        select *
-        from public.estudiante
-                 inner join public.admisiones as ad on codigo  = ad.codigo_e
-                 inner join public.ciudad as cio on unaccent(upper(ad.ciudad_origen_ad)) = cio.nombre
-                 inner join public.ciudad as cir on unaccent(upper(ad.ciudad_residencia_ad)) = cir.nombre
-                 inner join public.programa as pr on pr.nombre = unaccent(upper(ad.programa_ad))
-    )AS subquery
-    where codigo=subquery.codigo_e
+--select *  from public.estudiante;
 
 
 
 
 
+--delete from Archivo where 1=1;
+
+--select * from admisiones;
+
+--select * from estudiante;
+
+
+--select  TO_DATE('29/01/1994', 'DD/MM/YYYY');
