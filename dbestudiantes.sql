@@ -12,7 +12,8 @@ DROP TABLE IF EXISTS
     public.Periodo,
     public.Programa,
     public.Readmisiones,
-    public.Resultados
+    public.Resultados,
+    public.colegio
     CASCADE;
 CREATE EXTENSION IF NOT EXISTS unaccent;
 DROP FOREIGN TABLE IF EXISTS public.Admisiones,
@@ -70,6 +71,18 @@ CREATE TABLE public.Exoneracion
 ALTER SEQUENCE Exoneracion_id_seq
     OWNED BY public.Exoneracion.id;
 
+CREATE SEQUENCE if not exists Colegio_id_seq;
+
+CREATE TABLE IF NOT EXISTS public.Colegio
+(
+    id        INTEGER NOT NULL DEFAULT nextval('Colegio_id_seq'),
+    nombre    varchar,
+    id_ciudad int,
+    tipo      varchar,
+    CONSTRAINT colegio_pkey PRIMARY KEY (id)
+);
+ALTER SEQUENCE Colegio_id_seq
+    OWNED BY public.Colegio.id;
 
 CREATE TABLE public.Estudiante
 (
@@ -88,14 +101,8 @@ CREATE TABLE public.Estudiante
     nombre_situacion          VARCHAR,
     numero_readmisiones       INTEGER,
     numero_plan               INTEGER,
-    codigo_programa           INTEGER,
-    programa                  VARCHAR,
-    facultad                  VARCHAR,
     gano_examen_ingles        INTEGER,
-    tipo_colegio              VARCHAR,
-    colegioumento             VARCHAR,
     sexo                      VARCHAR,
-    colegio                   VARCHAR,
     fecha_nacimiento          varchar,
     anyo_11                   INTEGER,
     pago_sem_actual           VARCHAR,
@@ -114,19 +121,12 @@ CREATE TABLE public.Estudiante
     total_periodos_academicos INTEGER,
     total_periodos_pagados    INTEGER,
     puntaje_admision          INTEGER,
-    condigo_joven_en_accion   VARCHAR,
-    tipo_doc                  VARCHAR,
     num_documento             varchar,
-    nombre                    VARCHAR,
     num_registro              VARCHAR,
-    tipo_evaluado             VARCHAR,
-    novedades                 INTEGER,
-    periodo_exam              VARCHAR,
-    prom_acum_exam            INTEGER,
     ciudad_origen             INTEGER,
     programa_id               INTEGER,
     ciudad_residencia         INTEGER,
-    ciudad_colegio            INTEGER,
+    colegio_id                INTEGER,
     CONSTRAINT PK_codigo PRIMARY KEY (codigo)
 );
 CREATE SEQUENCE if not exists Facultad_id_seq;
@@ -188,6 +188,11 @@ ALTER TABLE Ciudad
         FOREIGN KEY (departamento_id)
             REFERENCES Departamento (id)
 ;
+ALTER TABLE Estudiante
+    ADD CONSTRAINT FK_REFERENCE_18
+        FOREIGN KEY (colegio_id)
+            REFERENCES Colegio (id)
+;
 
 ALTER TABLE Estudiante
     ADD CONSTRAINT FK_REFERENCE_2
@@ -213,11 +218,6 @@ ALTER TABLE Estudiante
 ;
 
 
-ALTER TABLE Estudiante
-    ADD CONSTRAINT FK_REFERENCE_12
-        FOREIGN KEY (ciudad_colegio)
-            REFERENCES Ciudad (id)
-;
 
 ALTER TABLE Programa
     ADD CONSTRAINT FK_REFERENCE_3
@@ -261,17 +261,22 @@ ALTER TABLE Exoneracion_estudiante
             REFERENCES Estudiante (codigo)
 ;
 
+ALTER TABLE Colegio
+    ADD CONSTRAINT FK_REFERENCE_20
+        FOREIGN KEY (id_ciudad)
+            REFERENCES Ciudad (id)
+;
+
 CREATE SEQUENCE if not exists Archivo_id_seq;
 
 CREATE TABLE IF NOT EXISTS public.Archivo
 (
-       id          INTEGER NOT NULL DEFAULT nextval('Archivo_id_seq'),
-
+    id             INTEGER NOT NULL DEFAULT nextval('Archivo_id_seq'),
     descripcion    varchar,
     tipo           varchar,
     new_file       varchar,
     fecha_creacion date,
-    estado varchar,
+    estado         varchar,
     CONSTRAINT archivo_archivo_pkey PRIMARY KEY (id)
 );
 ALTER SEQUENCE Archivo_id_seq
@@ -416,6 +421,27 @@ BEGIN
     WHERE PL.NOVEDADES = '-'
       AND PL.TIPO_DE_EVALUADO = 'Estudiante'
     ON CONFLICT (competencia_id, estudiante_codigo) DO NOTHING;
+    INSERT INTO public.resultados
+    SELECT 1,
+           CODIGO,
+           CASE
+               WHEN puntaje_global = '-' THEN NULL
+               ELSE puntaje_global::INTEGER
+               END,
+           CASE
+               WHEN percentil_nacional_global = '-' THEN NULL
+               ELSE percentil_nacional_global::INTEGER
+               END,
+           CASE
+               WHEN percentil_grupo_de_referencia = '-' THEN NULL
+               ELSE percentil_grupo_de_referencia::INTEGER
+               END,
+           ''
+    FROM PUBLIC.COMPETENCIA AS CO
+             INNER JOIN PUBLIC.PLANEACION AS PL ON CO.NOMBRE = unaccent(PL.MODULO)
+    WHERE PL.NOVEDADES = '-'
+      AND PL.TIPO_DE_EVALUADO = 'Estudiante'
+    ON CONFLICT (competencia_id, estudiante_codigo) DO NOTHING;
 
     -- cargar departamentos y ciudades
     --select departamento_origen,departamento_residencia,ciudad_origen,ciudad_residencia from public.admisiones;
@@ -461,7 +487,23 @@ BEGIN
                         ON unaccent(upper(ad.facultad_ad)) = fa.nombre
     where unaccent(upper(ad.programa_ad)) not in (select distinct nombre from public.programa)
     group by ad.programa_ad;
-
+    /*
+     ===========================================================================================================
+     FALTA ASEGURARSE DE METER LAS CIUDADES DE LOS COLEGIOS
+     ===========================================================================================================
+     */
+    --llena la tabla colegio
+    insert into colegio (nombre, id_ciudad, tipo)
+    select trim(unaccent(upper(COLEGIO_ad))) as nombre,
+           max(c.id)                            id_ciudad,
+           CASE
+               WHEN trim(unaccent(upper(max(TIPO_COLEGIO_ad)))) = 'PUBLICO' THEN 'PUBLICO'
+               ELSE 'PRIVADO'
+               END                           as tipo
+    from Admisiones
+             left join ciudad as c on trim(unaccent(upper(split_part(ORIGEN_COLEGIO_ad, ';', 2)))) = c.nombre
+    where trim(unaccent(upper(COLEGIO_ad))) not in (select distinct nombre from colegio)
+    group by COLEGIO_ad;
     -- cargar exoneraciones
 
 
@@ -473,23 +515,30 @@ BEGIN
     set cohorte=subquery.cohorte_ad::integer,
         sem_actual=subquery.sem_actual_ad::integer,
         estrato=subquery.estrato_ad::integer,
-        estado=subquery.estrato_ad,
+        estado=
+            CASE
+                WHEN trim(unaccent(upper(subquery.nom_estado_ad))) = 'ANTIGUO'
+                    OR
+                     trim(unaccent(upper(subquery.nom_estado_ad))) = 'GRADUADO'
+                    THEN
+                    trim(unaccent(upper(subquery.nom_estado_ad)))
+
+                ELSE 'OTROS'
+                END,
         promedio_acumulado=subquery.prom_acu_ad_ad::integer,
         reliq_casos_especiales=subquery.reliq_casos_esp_ad::integer,
         opcion_ingeso=subquery.opcion_de_ingreso_ad,
         ciudad_origen=subquery.cir_id,
         programa_id=subquery.pr_id,
         ciudad_residencia=subquery.cio_id,
-        cupo_especial_ingreso=subquery.cupo_especial_ad,
+        cupo_especial_ingreso=unaccent(upper(subquery.cupo_especial_ad)),
         ult_promedio_semestral=subquery.prom_sem_ad::integer,
         porc_creditos_aprobados=subquery.porc_cred_oblig_aprobados_ad::integer,
         nombre_situacion=subquery.nombre_situacion,
         numero_readmisiones=subquery.readmisiones_ad::integer,
         numero_plan=subquery.plan_ad::integer,
         gano_examen_ingles=subquery.gano_ingles_ad::integer,
-        tipo_colegio=subquery.tipo_colegio_ad,
         sexo=subquery.sexo_ad,
-        colegio=subquery.colegio_ad,
         fecha_nacimiento=subquery.nacimiento_ad,--::date,
         anyo_11=subquery.anio_undecimo_ad::integer,
         pago_sem_actual=subquery.pago_ad,
@@ -508,61 +557,67 @@ BEGIN
         total_periodos_academicos=subquery.total_periodos_academicos_ad::integer,
         total_periodos_pagados=subquery.total_periodos_pagados_ad::numeric,
         puntaje_admision=replace(subquery.puntaje_admision_ad, ',', '.')::numeric::integer,
-        num_documento=subquery.num_doc_ad
+        num_documento=subquery.num_doc_ad,
+        colegio_id=subquery.col_id
 
     from (
-             select *, cio.id as cio_id, cir.id as cir_id, pr.id as pr_id
+             select *, cio.id as cio_id, cir.id as cir_id, pr.id as pr_id, col.id as col_id
              from public.estudiante
                       inner join public.admisiones as ad on codigo = ad.codigo_e
                       inner join public.ciudad as cio on unaccent(upper(ad.ciudad_origen_ad)) = cio.nombre
                       inner join public.ciudad as cir on unaccent(upper(ad.ciudad_residencia_ad)) = cir.nombre
                       inner join public.programa as pr on pr.nombre = unaccent(upper(ad.programa_ad))
+                      inner join public.colegio as col on trim(unaccent(upper(ad.colegio_ad))) = col.nombre
          ) AS subquery
     where est.codigo = subquery.codigo_e;
-    NEW.estado='Subido OK';
+    NEW.estado = 'Subido OK';
     RETURN NEW;
 
-    exception
-        when others then
-            NEW.estado='Error: %';
-            RETURN NEW;
+exception
+    when others then
+        NEW.estado = 'Error: %';
+        RETURN NEW;
 
 
 END;
 $$;
 DROP TRIGGER IF EXISTS new_file_trigger ON public.Archivo CASCADE;
 
-
 CREATE TRIGGER new_file_trigger
     BEFORE INSERT
     ON public.Archivo
     FOR EACH ROW
 EXECUTE PROCEDURE new_file_function();
-
-select * from estudiante;
-
 /*
-INSERT INTO public.Archivo (id, descripcion, tipo, new_file)
-VALUES (1, 'DESCIPCION del archivo de planeacion de prueba', 'Planeacion',
+select *
+from estudiante;
+
+
+INSERT INTO public.Archivo (descripcion, tipo, new_file)
+VALUES ('DESCIPCION del archivo de planeacion de prueba', 'Planeacion',
         'data/archivos/planeacion.csv');
 
-INSERT INTO public.Archivo (id, descripcion, tipo, new_file)
-VALUES (2, 'DESCIPCION del archivo de admisiones de prueba', 'Admisiones',
+INSERT INTO public.Archivo (descripcion, tipo, new_file)
+VALUES ('DESCIPCION del archivo de admisiones de prueba', 'Admisiones',
         'data/archivos/admisiones.csv');
+
+
+select *
+from public.estudiante;
+
+
+select *
+from Colegio;
+
+
+select ULT_EXOS_APLICADAS_ad
+from Admisiones;
+
+SELECT DISTINCT CUPO_ESPECIAL_ad FROM Admisiones
+
 */
 
 
---select *  from public.estudiante;
 
 
 
-
-
---delete from Archivo where 1=1;
-
---select * from admisiones;
-
---select * from estudiante;
-
-
---select  TO_DATE('29/01/1994', 'DD/MM/YYYY');
