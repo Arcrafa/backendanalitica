@@ -277,6 +277,7 @@ CREATE TABLE IF NOT EXISTS public.Archivo
     new_file       varchar,
     fecha_creacion date,
     estado         varchar,
+    year            INTEGER ,
     CONSTRAINT archivo_archivo_pkey PRIMARY KEY (id)
 );
 ALTER SEQUENCE Archivo_id_seq
@@ -374,7 +375,7 @@ BEGIN
     NEW.fecha_creacion := now();
     --configura la external correspondiente
     strquery :=
-            CONCAT('ALTER FOREIGN TABLE public.', NEW.tipo, ' OPTIONS (SET filename ', CHR(39), '/var/lib/postgresql/',
+            CONCAT('ALTER FOREIGN TABLE public.', NEW.tipo, ' OPTIONS (SET filename ', CHR(39), '/var/lib/postgresql/data/',
                    NEW.new_file, CHR(39),
                    ')');
     raise notice '%',strquery;
@@ -595,11 +596,11 @@ from estudiante;
 
 INSERT INTO public.Archivo (descripcion, tipo, new_file)
 VALUES ('DESCIPCION del archivo de planeacion de prueba', 'Planeacion',
-        'data/archivos/planeacion.csv');
+        'archivos/planeacion.csv');
 
 INSERT INTO public.Archivo (descripcion, tipo, new_file)
 VALUES ('DESCIPCION del archivo de admisiones de prueba', 'Admisiones',
-        'data/archivos/admisiones.csv');
+        'archivos/admisiones.csv');
 
 
 select *

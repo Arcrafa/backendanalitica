@@ -11,5 +11,5 @@ from rest_framework.authtoken.models import Token
 
 class ArchivoViewSet(viewsets.ModelViewSet):
     queryset = models.Archivo.objects.all()
-    #permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated]
     serializer_class = ArchivoSerializer

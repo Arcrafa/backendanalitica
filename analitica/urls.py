@@ -18,6 +18,8 @@ from django.urls import path, include
 from rest_framework import routers, serializers, viewsets
 from archivo.views import ArchivoViewSet
 from . import views
+from django.conf import settings
+from django.conf.urls.static import static
 router = routers.DefaultRouter()
 router.register(r'archivo',ArchivoViewSet)
 urlpatterns = [
@@ -26,4 +28,4 @@ urlpatterns = [
     path('api-auth/', include('rest_framework.urls')),
     path('login',views.login)
 
-]
+]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
