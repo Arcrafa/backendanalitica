@@ -16,8 +16,10 @@ DROP TABLE IF EXISTS
     public.colegio
     CASCADE;
 CREATE EXTENSION IF NOT EXISTS unaccent;
-DROP FOREIGN TABLE IF EXISTS public.Admisiones,
-    public.Planeacion;
+DROP FOREIGN TABLE IF EXISTS
+    public.Admisiones,
+    public.Planeacion,
+    public.talento;
 
 CREATE SEQUENCE if not exists Departamento_id_seq;
 
@@ -277,7 +279,7 @@ CREATE TABLE IF NOT EXISTS public.Archivo
     new_file       varchar,
     fecha_creacion date,
     estado         varchar,
-    year            INTEGER ,
+    year           INTEGER,
     CONSTRAINT archivo_archivo_pkey PRIMARY KEY (id)
 );
 ALTER SEQUENCE Archivo_id_seq
@@ -365,6 +367,30 @@ CREATE FOREIGN TABLE Planeacion(
     ,novedades VARCHAR
     ) SERVER files_csv
     OPTIONS ( filename '/var/lib/postgresql/data/archivos/blanco.csv', format 'csv', delimiter ';' , header 'true');
+CREATE foreign TABLE Talento(
+    COHORTE_INGRESO VARCHAR
+    ,ULT_PERIODO_PAGO VARCHAR
+    ,CODIGO_ESTUDIANTE VARCHAR
+    ,FACULTAD VARCHAR
+    ,PROGRAMA VARCHAR
+    ,ESTADO_ACTUAL VARCHAR
+    ,PROMEDIO_ACUMULADO VARCHAR
+    ,NOMBRES VARCHAR
+    ,APELLIDOS VARCHAR
+    ,TIPO_DOCUMENTO VARCHAR
+    ,NUMERO_DOCUMENTO VARCHAR
+    ,CORREO_ELECTRONICO VARCHAR
+    ,TELEFONO VARCHAR
+    ,ESTRATO VARCHAR
+    ,FECHA_NACIMIENTO VARCHAR
+    ,DPTO_ORIGEN VARCHAR
+    ,MPIO_ORIGEN VARCHAR
+    ,REGISTRO_ICFES VARCHAR
+    ,NOMBRE_COLEGIO VARCHAR
+    ,DPTO_COLEGIO VARCHAR
+    ,MPIO_COLEGIO VARCHAR
+    ) SERVER files_csv
+    OPTIONS ( filename '/var/lib/postgresql/data/archivos/blanco.csv', format 'csv', delimiter ';' , header 'true');
 
 CREATE OR REPLACE FUNCTION NEW_FILE_FUNCTION() RETURNS TRIGGER
     LANGUAGE PLPGSQL AS
@@ -375,7 +401,8 @@ BEGIN
     NEW.fecha_creacion := now();
     --configura la external correspondiente
     strquery :=
-            CONCAT('ALTER FOREIGN TABLE public.', NEW.tipo, ' OPTIONS (SET filename ', CHR(39), '/var/lib/postgresql/data/',
+            CONCAT('ALTER FOREIGN TABLE public.', NEW.tipo, ' OPTIONS (SET filename ', CHR(39),
+                   '/var/lib/postgresql/data/',
                    NEW.new_file, CHR(39),
                    ')');
     raise notice '%',strquery;
@@ -451,6 +478,11 @@ BEGIN
     from public.admisiones
     where unaccent(upper(departamento_origen_ad)) not in (select distinct nombre from public.departamento);
     INSERT INTO public.Departamento(nombre)
+    select distinct trim(unaccent(upper(split_part(origen_colegio_ad, ';', 1))))
+    from public.admisiones
+    where trim(unaccent(upper(split_part(origen_colegio_ad, ';', 1)))) not in
+          (select distinct nombre from public.departamento);
+    INSERT INTO public.Departamento(nombre)
     select distinct unaccent(upper(departamento_residencia_ad))
     from public.admisiones
     where unaccent(upper(departamento_residencia_ad)) not in (select distinct nombre from public.departamento);
@@ -465,6 +497,15 @@ BEGIN
           (SELECT DISTINCT NOMBRE
            FROM PUBLIC.CIUDAD)
     GROUP BY AD.ciudad_origen_ad;
+
+
+    INSERT INTO public.Ciudad(nombre, departamento_id)
+    select trim(unaccent(upper(split_part(ad.ORIGEN_COLEGIO_ad, ';', 2)))), max(d.id)
+    from Admisiones as ad
+             left join departamento as d on
+            trim(unaccent(upper(split_part(ad.ORIGEN_COLEGIO_ad, ';', 1)))) = d.nombre
+    where trim(unaccent(upper(split_part(ad.ORIGEN_COLEGIO_ad, ';', 2)))) not in (select distinct nombre from ciudad)
+    group by trim(unaccent(upper(split_part(ad.ORIGEN_COLEGIO_ad, ';', 2))));
 
     INSERT INTO public.Ciudad(nombre, departamento_id)
     SELECT UNACCENT(UPPER(AD.ciudad_residencia_ad)),
@@ -492,11 +533,12 @@ BEGIN
      ===========================================================================================================
      FALTA ASEGURARSE DE METER LAS CIUDADES DE LOS COLEGIOS
      ===========================================================================================================
-     */
+    */
+
     --llena la tabla colegio
     insert into colegio (nombre, id_ciudad, tipo)
     select trim(unaccent(upper(COLEGIO_ad))) as nombre,
-           max(c.id)                            id_ciudad,
+           max(c.id)                         as id_ciudad,
            CASE
                WHEN trim(unaccent(upper(max(TIPO_COLEGIO_ad)))) = 'PUBLICO' THEN 'PUBLICO'
                ELSE 'PRIVADO'
@@ -504,7 +546,7 @@ BEGIN
     from Admisiones
              left join ciudad as c on trim(unaccent(upper(split_part(ORIGEN_COLEGIO_ad, ';', 2)))) = c.nombre
     where trim(unaccent(upper(COLEGIO_ad))) not in (select distinct nombre from colegio)
-    group by COLEGIO_ad;
+    group by trim(unaccent(upper(COLEGIO_ad))), trim(unaccent(upper(split_part(ORIGEN_COLEGIO_ad, ';', 2))));
     -- cargar exoneraciones
 
 
@@ -568,7 +610,10 @@ BEGIN
                       inner join public.ciudad as cio on unaccent(upper(ad.ciudad_origen_ad)) = cio.nombre
                       inner join public.ciudad as cir on unaccent(upper(ad.ciudad_residencia_ad)) = cir.nombre
                       inner join public.programa as pr on pr.nombre = unaccent(upper(ad.programa_ad))
-                      inner join public.colegio as col on trim(unaccent(upper(ad.colegio_ad))) = col.nombre
+                      inner join ciudad coc
+                                 on coc.nombre = trim(unaccent(upper(split_part(ad.ORIGEN_COLEGIO_ad, ';', 2))))
+                      inner join public.colegio as col
+                                 on trim(unaccent(upper(ad.colegio_ad))) = col.nombre and col.id_ciudad = coc.id
          ) AS subquery
     where est.codigo = subquery.codigo_e;
     NEW.estado = 'Subido OK';
@@ -589,36 +634,104 @@ CREATE TRIGGER new_file_trigger
     ON public.Archivo
     FOR EACH ROW
 EXECUTE PROCEDURE new_file_function();
-/*
-select *
-from estudiante;
 
-
-INSERT INTO public.Archivo (descripcion, tipo, new_file)
+INSERT INTO public.Archivo (descripcion, tipo, new_file, year)
 VALUES ('DESCIPCION del archivo de planeacion de prueba', 'Planeacion',
-        'archivos/planeacion.csv');
+        'archivos/planeacion.csv', 2020);
 
-INSERT INTO public.Archivo (descripcion, tipo, new_file)
+INSERT INTO public.Archivo (descripcion, tipo, new_file, year)
 VALUES ('DESCIPCION del archivo de admisiones de prueba', 'Admisiones',
-        'archivos/admisiones.csv');
+        'archivos/admisiones.csv', 2020);
 
+INSERT INTO public.Archivo (descripcion, tipo, new_file, year)
+VALUES ('DESCIPCION del archivo de talento de sistemas de prueba', 'Talento',
+        'archivos/Sistemas.csv', 2020);
 
-select *
-from public.estudiante;
+select count(*)
+from colegio
+where id_ciudad = 100;
 
+/*
+select max(nombre), max(id_ciudad)
+from colegio
+group by nombre, id_ciudad;
 
-select *
-from Colegio;
-
-
-select ULT_EXOS_APLICADAS_ad
-from Admisiones;
-
-SELECT DISTINCT CUPO_ESPECIAL_ad FROM Admisiones
-
+select *, cio.id as cio_id, cir.id as cir_id, pr.id as pr_id, col.id as col_id
+from public.estudiante
+         inner join public.admisiones as ad on codigo = ad.codigo_e
+         inner join public.ciudad as cio on unaccent(upper(ad.ciudad_origen_ad)) = cio.nombre
+         inner join public.ciudad as cir on unaccent(upper(ad.ciudad_residencia_ad)) = cir.nombre
+         inner join public.programa as pr on pr.nombre = unaccent(upper(ad.programa_ad))
+         inner join ciudad coc on coc.id = trim(unaccent(upper(ad.colegio_ad)))
+         inner join public.colegio as col
+                    on trim(unaccent(upper(ad.colegio_ad))) = col.nombre and col.id_ciudad = coc.id
 */
 
 
+select count(distinct colegio_id)
+from estudiante
+         inner join colegio c on c.id = Estudiante.colegio_id
+where c.id_ciudad = 100;
 
 
+update colegio
+set nombre=nombre || '(' || id || ')'
+where id in
+      (
+          select id
+          from (
+                   SELECT id,
+                          ROW_NUMBER() OVER (PARTITION BY nombre ORDER BY id asc) AS num
+                   FROM colegio
+               ) dups
+          where dups.num > 1
+      );
+insert into Colegio (id, nombre, id_ciudad, tipo)
+create view estudiante_colegio as
+SELECT codigo,
+       cohorte,
+       sem_actual,
+       estrato,
+       estado,
+       promedio_acumulado,
+       reliq_casos_especiales,
+       opcion_ingeso,
+       tipo_ingreso,
+       cupo_especial_ingreso,
+       ult_promedio_semestral,
+       porc_creditos_aprobados,
+       nombre_situacion,
+       numero_readmisiones,
+       numero_plan,
+       gano_examen_ingles,
+       sexo,
+       fecha_nacimiento,
+       anyo_11,
+       pago_sem_actual,
+       modalidad,
+       nivel_estudio,
+       mencion_honorofica,
+       fecha_grado,
+       saber11,
+       saberPro,
+       ult_periodo_academico,
+       ult_periodo_pagado,
+       ult_tipo_pago,
+       ult_valor_pagado,
+       ult_periodo_liquidado,
+       ult_valor_liquidado,
+       total_periodos_academicos,
+       total_periodos_pagados,
+       puntaje_admision,
+       num_documento,
+       num_registro,
+       ciudad_origen,
+       programa_id,
+       ciudad_residencia,
+       c.id,
+       c.nombre,
+       c.id_ciudad,
+       c.tipo
+from estudiante
+         left join colegio c on Estudiante.colegio_id = c.id;
 
