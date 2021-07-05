@@ -68,13 +68,15 @@ class Admisiones(models.Model):
 
 
 class Archivo(models.Model):
-    id = models.IntegerField(primary_key=True)
     descripcion = models.CharField(max_length=-1, blank=True, null=True)
     tipo = models.CharField(max_length=-1, blank=True, null=True)
     new_file = models.CharField(max_length=-1, blank=True, null=True)
     fecha_creacion = models.DateField(blank=True, null=True)
+    estado = models.CharField(max_length=-1, blank=True, null=True)
+    year = models.IntegerField(blank=True, null=True)
 
     class Meta:
+        managed = False
         db_table = 'archivo'
 
 
@@ -163,6 +165,16 @@ class Ciudad(models.Model):
         db_table = 'ciudad'
 
 
+class Colegio(models.Model):
+    nombre = models.CharField(max_length=-1, blank=True, null=True)
+    id_ciudad = models.ForeignKey(Ciudad, models.DO_NOTHING, db_column='id_ciudad', blank=True, null=True)
+    tipo = models.CharField(max_length=-1, blank=True, null=True)
+
+    class Meta:
+        managed = False
+        db_table = 'colegio'
+
+
 class Competencia(models.Model):
     nombre = models.CharField(max_length=-1, blank=True, null=True)
 
@@ -239,15 +251,9 @@ class Estudiante(models.Model):
     nombre_situacion = models.CharField(max_length=-1, blank=True, null=True)
     numero_readmisiones = models.IntegerField(blank=True, null=True)
     numero_plan = models.IntegerField(blank=True, null=True)
-    codigo_programa = models.IntegerField(blank=True, null=True)
-    programa = models.CharField(max_length=-1, blank=True, null=True)
-    facultad = models.CharField(max_length=-1, blank=True, null=True)
     gano_examen_ingles = models.IntegerField(blank=True, null=True)
-    tipo_colegio = models.CharField(max_length=-1, blank=True, null=True)
-    colegioumento = models.CharField(max_length=-1, blank=True, null=True)
     sexo = models.CharField(max_length=-1, blank=True, null=True)
-    colegio = models.CharField(max_length=-1, blank=True, null=True)
-    fecha_nacimiento = models.DateField(blank=True, null=True)
+    fecha_nacimiento = models.CharField(max_length=-1, blank=True, null=True)
     anyo_11 = models.IntegerField(blank=True, null=True)
     pago_sem_actual = models.CharField(max_length=-1, blank=True, null=True)
     modalidad = models.CharField(max_length=-1, blank=True, null=True)
@@ -265,21 +271,12 @@ class Estudiante(models.Model):
     total_periodos_academicos = models.IntegerField(blank=True, null=True)
     total_periodos_pagados = models.IntegerField(blank=True, null=True)
     puntaje_admision = models.IntegerField(blank=True, null=True)
-    condigo_joven_en_accion = models.CharField(max_length=-1, blank=True, null=True)
-    tipo_doc = models.CharField(max_length=-1, blank=True, null=True)
     num_documento = models.CharField(max_length=-1, blank=True, null=True)
-    nombre = models.CharField(max_length=-1, blank=True, null=True)
     num_registro = models.CharField(max_length=-1, blank=True, null=True)
-    tipo_evaluado = models.CharField(max_length=-1, blank=True, null=True)
-    novedades = models.IntegerField(blank=True, null=True)
-    periodo_exam = models.CharField(max_length=-1, blank=True, null=True)
-    prom_acum_exam = models.IntegerField(blank=True, null=True)
     ciudad_origen = models.ForeignKey(Ciudad, models.DO_NOTHING, db_column='ciudad_origen', blank=True, null=True)
-    programa_0 = models.ForeignKey('Programa', models.DO_NOTHING, db_column='programa_id', blank=True,
-                                   null=True)  # Field renamed because of name conflict.
-    ciudad_residencia = models.ForeignKey(Ciudad, models.DO_NOTHING, db_column='ciudad_residencia', blank=True,
-                                          null=True)
-    ciudad_colegio = models.ForeignKey(Ciudad, models.DO_NOTHING, db_column='ciudad_colegio', blank=True, null=True)
+    programa = models.ForeignKey('Programa', models.DO_NOTHING, blank=True, null=True)
+    ciudad_residencia = models.ForeignKey(Ciudad, models.DO_NOTHING, db_column='ciudad_residencia', blank=True, null=True)
+    colegio = models.ForeignKey(Colegio, models.DO_NOTHING, blank=True, null=True)
 
     class Meta:
         managed = False
@@ -296,8 +293,7 @@ class Exoneracion(models.Model):
 
 class ExoneracionEstudiante(models.Model):
     id = models.ForeignKey(Exoneracion, models.DO_NOTHING, db_column='id', blank=True, null=True)
-    estudiante_codigo = models.ForeignKey(Estudiante, models.DO_NOTHING, db_column='estudiante_codigo', blank=True,
-                                          null=True)
+    estudiante_codigo = models.ForeignKey(Estudiante, models.DO_NOTHING, db_column='estudiante_codigo', blank=True, null=True)
 
     class Meta:
         managed = False
@@ -358,8 +354,7 @@ class Programa(models.Model):
 
 class Readmisiones(models.Model):
     periodo = models.ForeignKey(Periodo, models.DO_NOTHING, blank=True, null=True)
-    estudiante_codigo = models.ForeignKey(Estudiante, models.DO_NOTHING, db_column='estudiante_codigo', blank=True,
-                                          null=True)
+    estudiante_codigo = models.ForeignKey(Estudiante, models.DO_NOTHING, db_column='estudiante_codigo', blank=True, null=True)
 
     class Meta:
         managed = False
@@ -368,8 +363,7 @@ class Readmisiones(models.Model):
 
 class Resultados(models.Model):
     competencia = models.ForeignKey(Competencia, models.DO_NOTHING, blank=True, null=True)
-    estudiante_codigo = models.ForeignKey(Estudiante, models.DO_NOTHING, db_column='estudiante_codigo', blank=True,
-                                          null=True)
+    estudiante_codigo = models.ForeignKey(Estudiante, models.DO_NOTHING, db_column='estudiante_codigo', blank=True, null=True)
     puntaje = models.IntegerField(blank=True, null=True)
     percentil_nal = models.IntegerField(blank=True, null=True)
     persentil_grupo = models.IntegerField(blank=True, null=True)
@@ -379,97 +373,3 @@ class Resultados(models.Model):
         managed = False
         db_table = 'resultados'
         unique_together = (('competencia', 'estudiante_codigo'),)
-
-
-class SaberproSaberpro(models.Model):
-    field1 = models.IntegerField(blank=True, null=True)
-    codigo = models.IntegerField(primary_key=True)
-    cohorte = models.IntegerField(blank=True, null=True)
-    sem_actual = models.IntegerField(blank=True, null=True)
-    estrato = models.IntegerField(blank=True, null=True)
-    codigo_estado = models.CharField(max_length=1, blank=True, null=True)
-    estado = models.CharField(max_length=8, blank=True, null=True)
-    promedio_acumulado = models.IntegerField(blank=True, null=True)
-    reliq_casos_especiales = models.IntegerField(blank=True, null=True)
-    ult_exos_aplicadas = models.CharField(max_length=79, blank=True, null=True)
-    opcion_ingeso = models.CharField(max_length=1, blank=True, null=True)
-    tipo_ingreso = models.CharField(max_length=11, blank=True, null=True)
-    cupo_especial_ingreso = models.CharField(max_length=7, blank=True, null=True)
-    ult_promedio_semestral = models.IntegerField(blank=True, null=True)
-    porc_creditos_aprobados = models.IntegerField(blank=True, null=True)
-    nombre_situacion = models.CharField(max_length=22, blank=True, null=True)
-    codigo_situacion_estudiante = models.CharField(max_length=1, blank=True, null=True)
-    numero_readmisiones = models.IntegerField(blank=True, null=True)
-    peridos_readmisiones = models.CharField(max_length=21, blank=True, null=True)
-    numero_plan = models.IntegerField(blank=True, null=True)
-    codigo_programa = models.IntegerField(blank=True, null=True)
-    programa = models.CharField(max_length=26, blank=True, null=True)
-    facultad = models.CharField(max_length=47, blank=True, null=True)
-    gano_examen_ingles = models.TextField(blank=True, null=True)
-    tipo_colegio = models.CharField(max_length=7, blank=True, null=True)
-    colegioumento = models.CharField(max_length=22, blank=True, null=True)
-    sexo = models.CharField(max_length=1, blank=True, null=True)
-    ciudad_origen = models.CharField(max_length=11, blank=True, null=True)
-    ciudad_residencia = models.CharField(max_length=11, blank=True, null=True)
-    dpto_origen = models.CharField(max_length=9, blank=True, null=True)
-    dpto_residencia = models.CharField(max_length=9, blank=True, null=True)
-    colegio = models.CharField(max_length=43, blank=True, null=True)
-    edad = models.IntegerField(blank=True, null=True)
-    fecha_nacimiento = models.DateField(blank=True, null=True)
-    anyo_11 = models.TextField(blank=True, null=True)
-    pago_sem_actual = models.CharField(max_length=12, blank=True, null=True)
-    modalidad = models.CharField(max_length=1, blank=True, null=True)
-    nivel_estudio = models.CharField(max_length=2, blank=True, null=True)
-    mencion_honorofica = models.CharField(max_length=7, blank=True, null=True)
-    fecha_grado = models.CharField(max_length=10, blank=True, null=True)
-    saber11 = models.CharField(max_length=14, blank=True, null=True)
-    saberpro = models.CharField(max_length=14, blank=True, null=True)
-    ult_periodo_academico = models.CharField(max_length=6, blank=True, null=True)
-    ult_periodo_pagado = models.CharField(max_length=6, blank=True, null=True)
-    ult_tipo_pago = models.CharField(max_length=23, blank=True, null=True)
-    ult_valor_pagado = models.IntegerField(blank=True, null=True)
-    ult_periodo_liquidado = models.CharField(max_length=6, blank=True, null=True)
-    ult_valor_liquidado = models.IntegerField(blank=True, null=True)
-    total_periodos_academicos = models.IntegerField(blank=True, null=True)
-    total_periodos_pagados = models.IntegerField(blank=True, null=True)
-    puntaje_admision = models.IntegerField(blank=True, null=True)
-    condigo_joven_en_accion = models.CharField(max_length=1, blank=True, null=True)
-    tipo_doc = models.CharField(max_length=2, blank=True, null=True)
-    num_documento_y = models.IntegerField(blank=True, null=True)
-    nombre = models.CharField(max_length=31, blank=True, null=True)
-    num_registro = models.CharField(max_length=14, blank=True, null=True)
-    tipo_evaluado = models.CharField(max_length=10, blank=True, null=True)
-    snies_prg = models.IntegerField(blank=True, null=True)
-    cprog = models.IntegerField(blank=True, null=True)
-    ciudad = models.CharField(max_length=11, blank=True, null=True)
-    grupo_ref = models.CharField(max_length=23, blank=True, null=True)
-    puntaje_global = models.IntegerField(blank=True, null=True)
-    percentil_nal_global = models.IntegerField(blank=True, null=True)
-    percentil_grupo_ref = models.IntegerField(blank=True, null=True)
-    novedades = models.IntegerField(blank=True, null=True)
-    nivel_desemp_competencias_ciudadanas = models.IntegerField(blank=True, null=True)
-    nivel_desemp_comunicacion_escrita = models.IntegerField(blank=True, null=True)
-    nivel_desemp_ingles = models.CharField(max_length=3, blank=True, null=True)
-    nivel_desemp_lectura_critica = models.IntegerField(blank=True, null=True)
-    nivel_desemp_razonamiento_cuantitativo = models.IntegerField(blank=True, null=True)
-    percentil_grupo_ref_mod_competencias_ciudadanas = models.IntegerField(blank=True, null=True)
-    percentil_grupo_ref_mod_comunicacion_escrita = models.IntegerField(blank=True, null=True)
-    percentil_grupo_ref_mod_ingles = models.IntegerField(blank=True, null=True)
-    percentil_grupo_ref_mod_lectura_critica = models.IntegerField(blank=True, null=True)
-    percentil_grupo_ref_mod_razonamiento_cuantitativo = models.IntegerField(blank=True, null=True)
-    percentil_nal_mod_competencias_ciudadanas = models.IntegerField(blank=True, null=True)
-    percentil_nal_mod_comunicacion_escrita = models.IntegerField(blank=True, null=True)
-    percentil_nal_mod_ingles = models.IntegerField(blank=True, null=True)
-    percentil_nal_mod_lectura_critica = models.IntegerField(blank=True, null=True)
-    percentil_nal_mod_razonamiento_cuantitativo = models.IntegerField(blank=True, null=True)
-    puntaje_mod_competencias_ciudadanas = models.IntegerField(blank=True, null=True)
-    puntaje_mod_comunicacion_escrita = models.IntegerField(blank=True, null=True)
-    puntaje_mod_ingles = models.IntegerField(blank=True, null=True)
-    puntaje_mod_lectura_critica = models.IntegerField(blank=True, null=True)
-    puntaje_mod_razonamiento_cuantitativo = models.IntegerField(blank=True, null=True)
-    periodo_exam = models.CharField(max_length=6, blank=True, null=True)
-    prom_acum_exam = models.IntegerField(blank=True, null=True)
-
-    class Meta:
-        managed = False
-        db_table = 'saberpro_saberpro'

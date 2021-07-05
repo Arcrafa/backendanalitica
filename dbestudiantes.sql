@@ -155,19 +155,22 @@ CREATE TABLE public.Programa
 ALTER SEQUENCE Programa_id_seq
     OWNED BY public.Programa.id;
 
-
+CREATE SEQUENCE if not exists Resultados_id_seq;
 CREATE TABLE public.Resultados
 (
+    id                INTEGER NOT NULL DEFAULT nextval('Resultados_id_seq'),
     competencia_id    INTEGER,
     estudiante_codigo VARCHAR,
     puntaje           INTEGER,
     percentil_nal     INTEGER,
     persentil_grupo   INTEGER,
     nivel_desemp      VARCHAR,
+    CONSTRAINT PK_resultado PRIMARY KEY (id),
     UNIQUE (competencia_id, estudiante_codigo)
 )
 ;
-
+ALTER SEQUENCE Resultados_id_seq
+    OWNED BY public.Resultados.id;
 CREATE TABLE public.Readmisiones
 (
     periodo_id        INTEGER,
@@ -290,7 +293,8 @@ CREATE EXTENSION IF NOT EXISTS file_fdw;
 CREATE SERVER IF NOT EXISTS files_csv FOREIGN DATA WRAPPER file_fdw;
 
 CREATE FOREIGN TABLE Admisiones(
-    codigo_e VARCHAR
+
+    codigo_e VARCHAR NOT NULL
     ,contar_ad VARCHAR
     ,COHORTE_ad VARCHAR
     ,SEM_ACTUAL_ad VARCHAR
@@ -342,7 +346,6 @@ CREATE FOREIGN TABLE Admisiones(
     ,TOTAL_PERIODOS_ACADEMICOS_ad VARCHAR
     ,TOTAL_PERIODOS_PAGADOS_ad VARCHAR
     ,PUNTAJE_ADMISION_ad VARCHAR
-
     ) SERVER files_csv
     OPTIONS ( filename '/var/lib/postgresql/data/archivos/blanco.csv', format 'csv' , delimiter ';', header 'true' );
 CREATE FOREIGN TABLE Planeacion(
@@ -428,7 +431,8 @@ BEGIN
     GROUP BY PL.CODIGO;
 
     -- guarda los resultados para las competencias de cada estudiante
-    INSERT INTO public.resultados
+    INSERT INTO public.resultados(competencia_id, estudiante_codigo, puntaje, percentil_nal, persentil_grupo,
+                                  nivel_desemp)
     SELECT ID::INTEGER,
            CODIGO,
            CASE
@@ -449,7 +453,8 @@ BEGIN
     WHERE PL.NOVEDADES = '-'
       AND PL.TIPO_DE_EVALUADO = 'Estudiante'
     ON CONFLICT (competencia_id, estudiante_codigo) DO NOTHING;
-    INSERT INTO public.resultados
+    INSERT INTO public.resultados(competencia_id, estudiante_codigo, puntaje, percentil_nal, persentil_grupo,
+                                  nivel_desemp)
     SELECT 1,
            CODIGO,
            CASE
@@ -647,43 +652,10 @@ INSERT INTO public.Archivo (descripcion, tipo, new_file, year)
 VALUES ('DESCIPCION del archivo de talento de sistemas de prueba', 'Talento',
         'archivos/Sistemas.csv', 2020);
 
-select count(*)
-from colegio
-where id_ciudad = 100;
-
-/*
-select max(nombre), max(id_ciudad)
-from colegio
-group by nombre, id_ciudad;
-
-select *, cio.id as cio_id, cir.id as cir_id, pr.id as pr_id, col.id as col_id
-from public.estudiante
-         inner join public.admisiones as ad on codigo = ad.codigo_e
-         inner join public.ciudad as cio on unaccent(upper(ad.ciudad_origen_ad)) = cio.nombre
-         inner join public.ciudad as cir on unaccent(upper(ad.ciudad_residencia_ad)) = cir.nombre
-         inner join public.programa as pr on pr.nombre = unaccent(upper(ad.programa_ad))
-         inner join ciudad coc on coc.id = trim(unaccent(upper(ad.colegio_ad)))
-         inner join public.colegio as col
-                    on trim(unaccent(upper(ad.colegio_ad))) = col.nombre and col.id_ciudad = coc.id
-*/
 
 
-select count(distinct colegio_id)
-from estudiante
-         inner join colegio c on c.id = Estudiante.colegio_id
-where c.id_ciudad = 100;
+select *
+from estudiante;
 
-
-update colegio
-set nombre=nombre || '(' || id || ')'
-where id in
-      (
-          select id
-          from (
-                   SELECT id,
-                          ROW_NUMBER() OVER (PARTITION BY nombre ORDER BY id asc) AS num
-                   FROM colegio
-               ) dups
-          where dups.num > 1
-      );
-insert into Colegio (id, nombre, id_ciudad, tipo)
+SELECT count(*)
+FROM public.resultados t
