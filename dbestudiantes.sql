@@ -81,7 +81,8 @@ CREATE TABLE IF NOT EXISTS public.Colegio
     nombre    varchar,
     id_ciudad int,
     tipo      varchar,
-    CONSTRAINT colegio_pkey PRIMARY KEY (id)
+    CONSTRAINT colegio_pkey PRIMARY KEY (id),
+    UNIQUE (nombre, id_ciudad)
 );
 ALTER SEQUENCE Colegio_id_seq
     OWNED BY public.Colegio.id;
@@ -421,14 +422,43 @@ BEGIN
     where unaccent(upper(pl.modulo)) not in (select distinct nombre from public.Competencia);
 
     --guarda los codigos y numero de registro que no esten en la tabla estudiante
-    INSERT INTO PUBLIC.ESTUDIANTE (CODIGO, NUM_REGISTRO)
-    SELECT PL.CODIGO, MAX(PL.NUMERO_DE_REGISTRO)
+    INSERT INTO PUBLIC.ESTUDIANTE (CODIGO)
+    SELECT PL.CODIGO
     FROM PUBLIC.PLANEACION AS PL
     WHERE PL.CODIGO NOT IN
           (SELECT DISTINCT CODIGO
            FROM PUBLIC.ESTUDIANTE)
-      AND TIPO_DE_EVALUADO = 'Estudiante'
-    GROUP BY PL.CODIGO;
+      AND PL.TIPO_DE_EVALUADO = 'Estudiante'
+      AND PL.NOVEDADES = '-'
+    group by PL.CODIGO;
+
+    update public.estudiante as est
+    set num_registro=subquery.numero_de_registro
+    from (
+             select e.codigo as codigo, p.numero_de_registro
+             from estudiante e
+                      left join planeacion p on e.codigo = p.codigo
+                 AND p.TIPO_DE_EVALUADO = 'Estudiante'
+                 AND p.NOVEDADES = '-'
+         ) AS subquery
+    where est.codigo = subquery.codigo;
+
+
+    INSERT INTO PUBLIC.ESTUDIANTE (CODIGO)
+    SELECT AD.codigo_e
+    FROM PUBLIC.ADMISIONES AS AD
+    WHERE AD.codigo_e NOT IN
+          (SELECT DISTINCT CODIGO
+           FROM PUBLIC.ESTUDIANTE);
+
+
+    INSERT INTO PUBLIC.ESTUDIANTE (CODIGO)
+    SELECT TA.codigo_estudiante
+    FROM PUBLIC.TALENTO AS TA
+    WHERE TA.codigo_estudiante NOT IN
+          (SELECT DISTINCT CODIGO
+           FROM PUBLIC.ESTUDIANTE);
+
 
     -- guarda los resultados para las competencias de cada estudiante
     INSERT INTO public.resultados(competencia_id, estudiante_codigo, puntaje, percentil_nal, persentil_grupo,
@@ -521,6 +551,16 @@ BEGIN
           (SELECT DISTINCT NOMBRE
            FROM PUBLIC.CIUDAD)
     GROUP BY AD.ciudad_residencia_ad;
+
+    INSERT INTO public.Ciudad(nombre, departamento_id)
+    SELECT UNACCENT(UPPER(t.mpio_colegio)),
+           MAX(DE.id)
+    FROM talento t
+             INNER JOIN PUBLIC.DEPARTAMENTO AS DE ON UNACCENT(UPPER(t.DPTO_COLEGIO)) = DE.NOMBRE
+    WHERE UNACCENT(UPPER(t.mpio_colegio)) not in
+          (SELECT DISTINCT NOMBRE
+           FROM PUBLIC.CIUDAD)
+    GROUP BY t.mpio_colegio;
     -- cargar programas y facultades
     INSERT INTO public.Facultad(nombre)
     select distinct unaccent(upper(facultad_ad))
@@ -550,14 +590,45 @@ BEGIN
                END                           as tipo
     from Admisiones
              left join ciudad as c on trim(unaccent(upper(split_part(ORIGEN_COLEGIO_ad, ';', 2)))) = c.nombre
-    where trim(unaccent(upper(COLEGIO_ad))) not in (select distinct nombre from colegio)
-    group by trim(unaccent(upper(COLEGIO_ad))), trim(unaccent(upper(split_part(ORIGEN_COLEGIO_ad, ';', 2))));
+    group by trim(unaccent(upper(COLEGIO_ad))), trim(unaccent(upper(split_part(ORIGEN_COLEGIO_ad, ';', 2))))
+    ON CONFLICT (nombre,id_ciudad) DO NOTHING;
+
+
+    insert into colegio (nombre, id_ciudad)
+    select trim(unaccent(upper(t.nombre_colegio))) as nombre,
+           max(c.id)                               as id_ciudad
+
+    from talento t
+             left join ciudad as c on trim(unaccent(upper(t.mpio_colegio))) = c.nombre
+    group by trim(unaccent(upper(t.nombre_colegio))), trim(unaccent(upper(t.mpio_colegio)))
+    ON CONFLICT (nombre,id_ciudad) DO NOTHING;
     -- cargar exoneraciones
 
 
     --cargar periodos
 
+    update public.estudiante as est
+    set cohorte=subquery.COHORTE_INGRESO::integer,
+        estrato=subquery.estrato::integer,
+        estado=subquery.ESTADO_ACTUAL,
+        promedio_acumulado=subquery.promedio_acumulado::integer,
+        fecha_nacimiento=subquery.fecha_nacimiento,
+        num_documento=subquery.NUMERO_DOCUMENTO,
+        ciudad_origen=subquery.ciudad_origen,
+        colegio_id=subquery.colegio_id,
+        programa_id=subquery.programa_id,
 
+        cupo_especial_ingreso='TALENTO MAGDALENA'
+    from (
+             select *, co.id ciudad_origen, col.id colegio_id, p.id programa_id
+             from talento t
+                      left join ciudad co on co.nombre = trim(unaccent(upper(t.mpio_origen)))
+                      left join ciudad cc on cc.nombre = trim(unaccent(upper(t.mpio_colegio)))
+                      left join colegio col
+                                on trim(unaccent(upper(t.nombre_colegio))) = col.nombre and cc.id = col.id_ciudad
+                      left join programa p on p.nombre = trim(unaccent(upper(t.programa)))
+                 ) as subquery
+             where est.codigo = subquery.codigo_estudiante;
     --cargar info restante de admisiones
     UPDATE public.estudiante as est
     set cohorte=subquery.cohorte_ad::integer,
@@ -654,8 +725,6 @@ VALUES ('DESCIPCION del archivo de talento de sistemas de prueba', 'Talento',
 
 
 
-select *
-from estudiante;
 
-SELECT count(*)
-FROM public.resultados t
+
+
