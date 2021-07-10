@@ -24,14 +24,11 @@ SECRET_KEY = '7d*5f76*j_b^a0wzdtr#1^aa_h%26-7d$rmdbzh9mk4c1i+0-3'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['.localhost', '127.0.0.1', '[::1]',
-                 'arc123.xyz', '0.0.0.0','www.arc123.xyz','www.arc123.xyz:80',
-                 'www.arc123.xyz:8000','localhost','localhost:3000','http://localhost:3000'
-                    ,'http://localhost:3000']
 
 # Application definition
 
 INSTALLED_APPS = [
+    'corsheaders',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -42,6 +39,7 @@ INSTALLED_APPS = [
     'rest_framework.authtoken',
     'archivo'
 ]
+
 REST_FRAMEWORK = {
     # Use Django's standard `django.contrib.auth` permissions,
     # or allow read-only access for unauthenticated users.
@@ -52,7 +50,9 @@ REST_FRAMEWORK = {
     ]
 }
 
+
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -61,7 +61,9 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+ALLOWED_HOSTS = ['*']
 
+CORS_ORIGIN_ALLOW_ALL = True
 ROOT_URLCONF = 'analitica.urls'
 
 TEMPLATES = [
