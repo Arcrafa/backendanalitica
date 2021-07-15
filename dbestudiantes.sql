@@ -374,6 +374,7 @@ CREATE FOREIGN TABLE Planeacion(
 CREATE foreign TABLE Talento(
     COHORTE_INGRESO VARCHAR
     ,ULT_PERIODO_PAGO VARCHAR
+    ,ULT_PERIODO_ACTIVO varchar
     ,CODIGO_ESTUDIANTE VARCHAR
     ,FACULTAD VARCHAR
     ,PROGRAMA VARCHAR
@@ -535,6 +536,17 @@ BEGIN
 
 
     INSERT INTO public.Ciudad(nombre, departamento_id)
+    SELECT UNACCENT(UPPER(ta.MPIO_ORIGEN)),
+           MAX(DE.id)
+    FROM talento as ta
+             INNER JOIN PUBLIC.DEPARTAMENTO AS DE ON UNACCENT(UPPER(ta.dpto_origen)) = DE.NOMBRE
+    WHERE UNACCENT(UPPER(ta.MPIO_ORIGEN)) not in
+          (SELECT DISTINCT NOMBRE
+           FROM PUBLIC.CIUDAD)
+    GROUP BY ta.MPIO_ORIGEN;
+
+
+    INSERT INTO public.Ciudad(nombre, departamento_id)
     select trim(unaccent(upper(split_part(ad.ORIGEN_COLEGIO_ad, ';', 2)))), max(d.id)
     from Admisiones as ad
              left join departamento as d on
@@ -574,6 +586,13 @@ BEGIN
                         ON unaccent(upper(ad.facultad_ad)) = fa.nombre
     where unaccent(upper(ad.programa_ad)) not in (select distinct nombre from public.programa)
     group by ad.programa_ad;
+    insert into public.Programa(nombre, facultad_id)
+    select unaccent(upper(ta.programa)), max(fa.id)
+    FROM public.Talento as ta
+             INNER JOIN public.Facultad as fa
+                        ON unaccent(upper(ta.facultad)) = fa.nombre
+    where unaccent(upper(ta.programa)) not in (select distinct nombre from public.programa)
+    group by ta.programa;
     /*
      ===========================================================================================================
      FALTA ASEGURARSE DE METER LAS CIUDADES DE LOS COLEGIOS
@@ -713,17 +732,16 @@ EXECUTE PROCEDURE new_file_function();
 
 INSERT INTO public.Archivo (descripcion, tipo, new_file, year)
 VALUES ('DESCIPCION del archivo de planeacion de prueba', 'Planeacion',
-        'archivos/planeacion.csv', 2020);
-
+        'archivos/planeacion2020.csv', 2020);
 INSERT INTO public.Archivo (descripcion, tipo, new_file, year)
 VALUES ('DESCIPCION del archivo de admisiones de prueba', 'Admisiones',
-        'archivos/admisiones.csv', 2020);
-
+        'archivos/admisiones2020.csv', 2020);
 INSERT INTO public.Archivo (descripcion, tipo, new_file, year)
-VALUES ('DESCIPCION del archivo de talento de sistemas de prueba', 'Talento',
-        'archivos/Sistemas.csv', 2020);
+VALUES ('archivo de talento completo 2021', 'Talento',
+        'archivos/Talento_Completo.csv', 2021);
 
 
+ALTER FOREIGN TABLE public.Talento OPTIONS (SET filename '/var/lib/postgresql/data/archivos/Talento_Completo.csv')
 
 
 
