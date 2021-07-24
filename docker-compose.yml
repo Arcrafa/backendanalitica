@@ -4,8 +4,8 @@ services:
   db:
     image: postgres
     volumes:
-      - ./dbestudiantes.sql:/docker-entrypoint-initdb.d/init.sql
-      - ./data:/var/lib/postgresql/data
+      - ./backend/dbestudiantes.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./backend/data:/var/lib/postgresql/data
 
     ports:
       - "5432:5432"
@@ -14,10 +14,10 @@ services:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
   web:
-    build: .
+    build: ""
     command: python manage.py runserver 0.0.0.0:8000
     volumes:
-      - .:/code
+      - ./backend/:/code
     ports:
       - "8000:8000"
     depends_on:

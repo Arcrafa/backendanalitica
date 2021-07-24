@@ -11,7 +11,7 @@ archivos/
 
 # Distribution / packaging
 
-data
+backend/data
 .Python
 build/
 develop-eggs/

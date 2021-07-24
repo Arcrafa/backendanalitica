@@ -4,8 +4,8 @@
 # Create your views here.
 from rest_framework import viewsets, permissions
 
-from archivo import models
-from archivo.serializers import ArchivoSerializer
+from backend.archivo import models
+from backend.archivo.serializers import ArchivoSerializer
 from rest_framework.authtoken.models import Token
 
 

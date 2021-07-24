@@ -64,7 +64,7 @@ MIDDLEWARE = [
 ALLOWED_HOSTS = ['*']
 
 CORS_ORIGIN_ALLOW_ALL = True
-ROOT_URLCONF = 'analitica.urls'
+ROOT_URLCONF = 'backend.analitica.urls'
 
 TEMPLATES = [
     {

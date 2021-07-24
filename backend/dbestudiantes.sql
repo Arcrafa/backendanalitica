@@ -444,7 +444,7 @@ BEGIN
          ) AS subquery
     where est.codigo = subquery.codigo;
 
-
+/*
     INSERT INTO PUBLIC.ESTUDIANTE (CODIGO)
     SELECT AD.codigo_e
     FROM PUBLIC.ADMISIONES AS AD
@@ -452,7 +452,7 @@ BEGIN
           (SELECT DISTINCT CODIGO
            FROM PUBLIC.ESTUDIANTE);
 
-
+    */
     INSERT INTO PUBLIC.ESTUDIANTE (CODIGO)
     SELECT TA.codigo_estudiante
     FROM PUBLIC.TALENTO AS TA
@@ -649,6 +649,7 @@ BEGIN
                  ) as subquery
              where est.codigo = subquery.codigo_estudiante;
     --cargar info restante de admisiones
+
     UPDATE public.estudiante as est
     set cohorte=subquery.cohorte_ad::integer,
         sem_actual=subquery.sem_actual_ad::integer,
@@ -694,7 +695,7 @@ BEGIN
         ult_periodo_liquidado =subquery.ultimo_periodo_liquidado_ad,
         total_periodos_academicos=subquery.total_periodos_academicos_ad::integer,
         total_periodos_pagados=subquery.total_periodos_pagados_ad::numeric,
-        puntaje_admision=replace(subquery.puntaje_admision_ad, ',', '.')::numeric::integer,
+        --puntaje_admision=replace(subquery.puntaje_admision_ad, ',', '.')::numeric::integer,
         num_documento=subquery.num_doc_ad,
         colegio_id=subquery.col_id
 
@@ -711,6 +712,8 @@ BEGIN
                                  on trim(unaccent(upper(ad.colegio_ad))) = col.nombre and col.id_ciudad = coc.id
          ) AS subquery
     where est.codigo = subquery.codigo_e;
+
+
     NEW.estado = 'Subido OK';
     RETURN NEW;
 
@@ -732,17 +735,29 @@ EXECUTE PROCEDURE new_file_function();
 
 INSERT INTO public.Archivo (descripcion, tipo, new_file, year)
 VALUES ('DESCIPCION del archivo de planeacion de prueba', 'Planeacion',
-        'archivos/planeacion2020.csv', 2020);
-INSERT INTO public.Archivo (descripcion, tipo, new_file, year)
-VALUES ('DESCIPCION del archivo de admisiones de prueba', 'Admisiones',
-        'archivos/admisiones2020.csv', 2020);
+        'archivos/todo_planeacion.csv', 2020);
+
 INSERT INTO public.Archivo (descripcion, tipo, new_file, year)
 VALUES ('archivo de talento completo 2021', 'Talento',
         'archivos/Talento_Completo.csv', 2021);
 
+INSERT INTO public.Archivo (descripcion, tipo, new_file, year)
+VALUES ('DESCIPCION del archivo de admisiones de prueba', 'Admisiones',
+        'archivos/Todo_admisiones.csv', 2020);
 
-ALTER FOREIGN TABLE public.Talento OPTIONS (SET filename '/var/lib/postgresql/data/archivos/Talento_Completo.csv')
+
+--ALTER FOREIGN TABLE public.Admisiones OPTIONS (SET filename '/var/lib/postgresql/data/archivos/Todo_admisiones.csv')
+
+select count(*)
+from planeacion p;
+
+select count(*)
+from resultados r;
+
+UPDATE planeacion
+SET  = value1,
+
+where SUBSTRING ( numero_de_registro ,3 , 4 ) ='2020';
 
 
-
-
+select * from estudiante where SUBSTRING ( num_registro ,3 , 4 ) ='2020';
