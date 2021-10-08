@@ -348,7 +348,7 @@ CREATE FOREIGN TABLE Admisiones(
     ,TOTAL_PERIODOS_PAGADOS_ad VARCHAR
     ,PUNTAJE_ADMISION_ad VARCHAR
     ) SERVER files_csv
-    OPTIONS ( filename '/var/lib/postgresql/data/archivos/blanco.csv', format 'csv' , delimiter ';', header 'true' );
+    OPTIONS ( filename '/var/lib/postgresql/archivos/blanco.csv', format 'csv' , delimiter ';', header 'true' );
 CREATE FOREIGN TABLE Planeacion(
     tipo_de_documento VARCHAR
     ,documento VARCHAR
@@ -370,7 +370,7 @@ CREATE FOREIGN TABLE Planeacion(
     ,percentil_grupo_de_referencia_modulo VARCHAR
     ,novedades VARCHAR
     ) SERVER files_csv
-    OPTIONS ( filename '/var/lib/postgresql/data/archivos/blanco.csv', format 'csv', delimiter ';' , header 'true');
+    OPTIONS ( filename '/var/lib/postgresql/archivos/blanco.csv', format 'csv', delimiter ';' , header 'true');
 CREATE foreign TABLE Talento(
     COHORTE_INGRESO VARCHAR
     ,ULT_PERIODO_PAGO VARCHAR
@@ -395,7 +395,14 @@ CREATE foreign TABLE Talento(
     ,DPTO_COLEGIO VARCHAR
     ,MPIO_COLEGIO VARCHAR
     ) SERVER files_csv
-    OPTIONS ( filename '/var/lib/postgresql/data/archivos/blanco.csv', format 'csv', delimiter ';' , header 'true');
+    OPTIONS ( filename '/var/lib/postgresql/archivos/blanco.csv', format 'csv', delimiter ';' , header 'true');
+
+insert into public.Competencia (nombre) values ('GLOBAL');
+insert into public.Competencia (nombre) values ('RAZONAMIENTO CUANTITATIVO');
+insert into public.Competencia (nombre) values ('LECTURA CRITICA');
+insert into public.Competencia (nombre) values ('COMPETENCIAS CIUDADANAS');
+insert into public.Competencia (nombre) values ('COMUNICACION ESCRITA');
+insert into public.Competencia (nombre) values ('INGLES');
 
 CREATE OR REPLACE FUNCTION NEW_FILE_FUNCTION() RETURNS TRIGGER
     LANGUAGE PLPGSQL AS
@@ -407,7 +414,7 @@ BEGIN
     --configura la external correspondiente
     strquery :=
             CONCAT('ALTER FOREIGN TABLE public.', NEW.tipo, ' OPTIONS (SET filename ', CHR(39),
-                   '/var/lib/postgresql/data/',
+                   '/var/lib/postgresql/',
                    NEW.new_file, CHR(39),
                    ')');
     raise notice '%',strquery;
@@ -415,12 +422,9 @@ BEGIN
 
 
     --carga informacion de planeacion
-    --guarda las competencias si que no esten en la tabla
-    insert into public.Competencia (nombre) values ('GLOBAL');
-    insert into public.Competencia (nombre)
-    select distinct unaccent(upper(pl.modulo))
-    from public.Planeacion pl
-    where unaccent(upper(pl.modulo)) not in (select distinct nombre from public.Competencia);
+
+
+
 
     --guarda los codigos y numero de registro que no esten en la tabla estudiante
     INSERT INTO PUBLIC.ESTUDIANTE (CODIGO)
@@ -484,6 +488,12 @@ BEGIN
     WHERE PL.NOVEDADES = '-'
       AND PL.TIPO_DE_EVALUADO = 'Estudiante'
     ON CONFLICT (competencia_id, estudiante_codigo) DO NOTHING;
+    --aquiiiiiiiiiiiiiiiiiiiiiiii
+
+
+
+
+
     INSERT INTO public.resultados(competencia_id, estudiante_codigo, puntaje, percentil_nal, persentil_grupo,
                                   nivel_desemp)
     SELECT 1,
@@ -734,30 +744,15 @@ CREATE TRIGGER new_file_trigger
 EXECUTE PROCEDURE new_file_function();
 
 INSERT INTO public.Archivo (descripcion, tipo, new_file, year)
-VALUES ('DESCIPCION del archivo de planeacion de prueba', 'Planeacion',
-        'archivos/todo_planeacion.csv', 2020);
+VALUES ('archivo de planeacion todo completo hasta el 2020', 'Planeacion',
+        'archivos/todo_planeacion_redu.csv', 2020);
 
 INSERT INTO public.Archivo (descripcion, tipo, new_file, year)
-VALUES ('archivo de talento completo 2021', 'Talento',
+VALUES ('archivo de talento todo completo 2021', 'Talento',
         'archivos/Talento_Completo.csv', 2021);
 
 INSERT INTO public.Archivo (descripcion, tipo, new_file, year)
-VALUES ('DESCIPCION del archivo de admisiones de prueba', 'Admisiones',
+VALUES ('archivo de admisiones todo completo hasta el 2020', 'Admisiones',
         'archivos/Todo_admisiones.csv', 2020);
 
 
---ALTER FOREIGN TABLE public.Admisiones OPTIONS (SET filename '/var/lib/postgresql/data/archivos/Todo_admisiones.csv')
-
-select count(*)
-from planeacion p;
-
-select count(*)
-from resultados r;
-
-UPDATE planeacion
-SET  = value1,
-
-where SUBSTRING ( numero_de_registro ,3 , 4 ) ='2020';
-
-
-select * from estudiante where SUBSTRING ( num_registro ,3 , 4 ) ='2020';
